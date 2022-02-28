@@ -1,0 +1,1 @@
+ffmpeg -i lober_hd_frames/%d_lober_hd.png -vf palettegen palette.png && ffmpeg -v warning -i lober_hd_frames/%d_lober_hd.png -i palette.png  -lavfi "paletteuse,setpts=N/(60*TB)" -y lober_hd.gif && rm palette.png

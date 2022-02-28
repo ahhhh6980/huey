@@ -1,0 +1,1 @@
+ffmpeg -i rustacean_frames/%d_rustacean.png -vf palettegen palette.png && ffmpeg -v warning -i rustacean_frames/%d_rustacean.png -i palette.png  -lavfi "paletteuse,setpts=N/(60*TB)" -y rustacean.gif && rm palette.png
