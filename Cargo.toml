@@ -1,5 +1,5 @@
 [package]
-name = "hue_shift"
+name = "huey"
 version = "0.1.0"
 edition = "2021"
 

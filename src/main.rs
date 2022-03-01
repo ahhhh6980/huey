@@ -104,6 +104,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             .split(".")
             .collect::<Vec<&str>>()[0],
     );
+    let ext = String::from(
+        fname
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .split(".")
+            .collect::<Vec<&str>>()[1],
+    );
     let frame_path = format!("{p}/{p}{}", "_frames", p = &input_name);
     let gifname = format!("{p}/{p}.gif", p = &input_name);
 
@@ -116,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     fs::create_dir(&frame_path)?;
 
     // , n=&input_name
-    let message = format!("ffmpeg -i {f}_frames/%d_{f}.png -vf palettegen palette.png && ffmpeg -v warning -i {f}_frames/%d_{f}.png -i palette.png  -lavfi \"paletteuse,setpts=N/({d}*TB)\" -y {f}.gif && rm palette.png", f=&input_name, d=frame_time);
+    let message = format!("ffmpeg -i {f}_frames/%d_{f}.{e} -vf palettegen palette.png && ffmpeg -v warning -i {f}_frames/%d_{f}.{e} -i palette.png  -lavfi \"paletteuse,setpts=N/({d}*TB)\" -y {f}.gif && rm palette.png", f=&input_name, d=frame_time, e=&ext);
     let message_path = format!("{}/ffmpeg_command.txt", &input_name);
     fs::write(&message_path, &message)?;
 
@@ -139,7 +147,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let color = Rgba::<u8>::from(color.hsv_rgb().to_arr8());
             image.put_pixel(x, y, color);
         }
-        let oname = format!("{}/{}_{}.png", &frame_path, h, &input_name);
+        let oname = format!("{}/{}_{}.{}", &frame_path, h, &input_name, &ext);
         println!(
             "| {:.2}% | Processing {} |",
             (h as f32 / (2.0 * colors as f32)) * 100.0,
@@ -157,7 +165,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     gif.set_repeat(image::codecs::gif::Repeat::Infinite)?;
 
     for h in 0..colors {
-        let oname = format!("{}/{}_{}.png", &frame_path, h, &input_name);
+        let oname = format!("{}/{}_{}.{}", &frame_path, h, &input_name, &ext);
         println!(
             "| {:.2}% | Encoding {} |",
             ((h as f32 / (2.0 * colors as f32)) * 100.0) + 50.0,
@@ -165,7 +173,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
         let pixels = image::open(&oname)?.to_rgba8();
         let frame =
-            image::Frame::from_parts(pixels, 0, 0, Delay::from_numer_denom_ms(100, frame_time));
+            image::Frame::from_parts(pixels, 0, 0, Delay::from_numer_denom_ms(frame_time, colors));
 
         frame.delay();
         gif.encode_frame(frame)?;
