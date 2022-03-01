@@ -1,7 +1,7 @@
 mod color;
+use color::Color;
 use image::Delay;
 use image::{codecs::gif::GifEncoder, Rgba};
-use color::Color;
 use std::fs::File;
 use std::{
     error::Error,
@@ -133,17 +133,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut image = image::open(&fname)?.to_rgba8();
         for (x, y, pixel) in image::open(&fname)?.to_rgba32f().enumerate_pixels() {
             let mut color = Color {
-                r: pixel.0[0],
-                g: pixel.0[1],
-                b: pixel.0[2],
-                a: pixel.0[3],
+                ch: pixel.0,
                 mode: color::ColorType::RGBA,
             }
             .to_HSVA();
-            if color.a != 1.0 {
-                color.a = 0.0;
+            if color.ch[3] != 1.0 {
+                color.ch[3] = 0.0;
             }
-            color.r = (color.r + (h as f32 * (360.0 / colors as f32))) % 360.0;
+            color.ch[0] = (color.ch[0] + (h as f32 * (360.0 / colors as f32))) % 360.0;
             let color = Rgba::<u8>::from(color.to_RGBA().to_arr8());
             image.put_pixel(x, y, color);
         }
