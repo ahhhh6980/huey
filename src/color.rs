@@ -1,5 +1,5 @@
 // fracgen
-// RgbaF type
+// Color type
 // (C) 2022 by Jacob (ahhhh6980@gmail.com)
 
 // This program is free software: you can redistribute it and/or modify
@@ -17,54 +17,91 @@
 
 use std::{num::ParseIntError, str::FromStr};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ColorType {
+    RGBA,
+    SRGBA,
+    HSVA
+}
+
 #[allow(non_snake_case)]
 #[derive(Clone, Copy, Debug)]
-pub struct RgbaF {
+pub struct Color {
     pub r: f32,
     pub g: f32,
     pub b: f32,
     pub a: f32,
-    pub sRGB: bool,
+    pub mode: ColorType,
 }
 
 #[allow(non_snake_case, dead_code)]
-impl RgbaF {
-    pub fn new_color_alpha(r: f32, g: f32, b: f32, a: f32) -> RgbaF {
-        RgbaF {
+impl Color {
+    pub fn new_color_alpha(r: f32, g: f32, b: f32, a: f32) -> Color {
+        Color {
             r,
             g,
             b,
             a,
-            sRGB: false,
+            mode: ColorType::RGBA,
         }
     }
-    pub fn new_color(r: f32, g: f32, b: f32) -> RgbaF {
-        RgbaF {
+    pub fn new_color(r: f32, g: f32, b: f32) -> Color {
+        Color {
             r,
             g,
             b,
             a: 1.0,
-            sRGB: false,
+            mode: ColorType::RGBA,
         }
     }
-    pub fn new_alpha(v: f32, a: f32) -> RgbaF {
-        RgbaF {
+    pub fn new_alpha(v: f32, a: f32) -> Color {
+        Color {
             r: v,
             g: v,
             b: v,
             a,
-            sRGB: false,
+            mode: ColorType::RGBA,
         }
     }
-    pub fn new(v: f32) -> RgbaF {
-        RgbaF {
+    pub fn new(v: f32) -> Color {
+        Color {
             r: v,
             g: v,
             b: v,
             a: 1.0,
-            sRGB: false,
+            mode: ColorType::RGBA,
         }
     }
+
+    pub fn to(self, ctype: ColorType) -> Color {
+        if self.mode != ctype {
+            match ctype {
+                ColorType::HSVA => {
+                    match self.mode {
+                        ColorType::RGBA => self.to_HSVA(),
+                        ColorType::SRGBA => self.to_RGBA().to_HSVA(),
+                        _ => self,
+                    };
+                },
+                ColorType::RGBA => {
+                    match self.mode {
+                        ColorType::SRGBA => self.to_RGBA(),
+                        ColorType::HSVA => self.to_RGBA(),
+                        _ => self,
+                    };
+                },
+                ColorType::SRGBA => {
+                    match self.mode {
+                        ColorType::RGBA => self.to_sRGB(),
+                        ColorType::HSVA => self.to_RGBA().to_sRGB(),
+                        _ => self,
+                    };
+                },
+            }
+        }
+        self
+    }
+
     fn sRGB(value: f32, inverse: bool) -> f32 {
         if inverse {
             if value <= 0.04045 {
@@ -85,18 +122,18 @@ impl RgbaF {
         let k = (n + (h / 60.0)) % 6.0;
         v - (v * s * (0.0f32).max((k).min((4.0 - k).min(1.0))))
     }
-    pub fn from_hsv(h: f32, s: f32, v: f32, a: f32) -> RgbaF {
+    pub fn from_hsv(h: f32, s: f32, v: f32, a: f32) -> Color {
         let h = h % 360.0;
-        RgbaF {
-            r: RgbaF::f_hsv(h, s, v, 5.0),
-            g: RgbaF::f_hsv(h, s, v, 3.0),
-            b: RgbaF::f_hsv(h, s, v, 1.0),
+        Color {
+            r: Color::f_hsv(h, s, v, 5.0),
+            g: Color::f_hsv(h, s, v, 3.0),
+            b: Color::f_hsv(h, s, v, 1.0),
             a: a,
-            sRGB: false,
+            mode: ColorType::RGBA,
         }
     }
 
-    pub fn rgb_hsv(&self) -> RgbaF {
+    pub fn to_HSVA(&self) -> Color {
         let v = self.r.max(self.g.max(self.b));
         let min = self.r.min(self.g.min(self.b));
         let c = v - min;
@@ -119,41 +156,41 @@ impl RgbaF {
         if v != 0.0 {
             s = c / v;
         }
-        RgbaF {
+        Color {
             r: h,
             g: s,
             b: v,
             a: self.a,
-            sRGB: false,
-        }
-    }
-    // Dont ask why I'm doing this in here of all places, lol
-    pub fn hsv_rgb(&self) -> RgbaF {
-        RgbaF {
-            r: RgbaF::f_hsv(self.r, self.g, self.b, 5.0),
-            g: RgbaF::f_hsv(self.r, self.g, self.b, 3.0),
-            b: RgbaF::f_hsv(self.r, self.g, self.b, 1.0),
-            a: self.a,
-            sRGB: false,
+            mode: ColorType::HSVA,
         }
     }
 
-    pub fn to_sRGB(&self) -> RgbaF {
-        RgbaF {
-            r: RgbaF::sRGB(self.r, false),
-            g: RgbaF::sRGB(self.g, false),
-            b: RgbaF::sRGB(self.b, false),
-            a: RgbaF::sRGB(self.a, true),
-            sRGB: true,
+    pub fn to_sRGB(&self) -> Color {
+        Color {
+            r: Color::sRGB(self.r, false),
+            g: Color::sRGB(self.g, false),
+            b: Color::sRGB(self.b, false),
+            a: Color::sRGB(self.a, true),
+            mode: ColorType::SRGBA,
         }
     }
-    pub fn to_RGB(&self) -> RgbaF {
-        RgbaF {
-            r: RgbaF::sRGB(self.r, true),
-            g: RgbaF::sRGB(self.g, true),
-            b: RgbaF::sRGB(self.b, true),
-            a: RgbaF::sRGB(self.a, true),
-            sRGB: false,
+    pub fn to_RGBA(&self) -> Color {
+        if self.mode == ColorType::HSVA {
+            Color {
+                r: Color::f_hsv(self.r, self.g, self.b, 5.0),
+                g: Color::f_hsv(self.r, self.g, self.b, 3.0),
+                b: Color::f_hsv(self.r, self.g, self.b, 1.0),
+                a: self.a,
+                mode: ColorType::RGBA,
+            }
+        } else {
+            Color {
+                r: Color::sRGB(self.r, true),
+                g: Color::sRGB(self.g, true),
+                b: Color::sRGB(self.b, true),
+                a: Color::sRGB(self.a, true),
+                mode: ColorType::RGBA,
+            }
         }
     }
     pub fn to_arr(&self) -> [f32; 4] {
@@ -177,125 +214,110 @@ impl RgbaF {
     }
 }
 
-impl FromStr for RgbaF {
+impl FromStr for Color {
     type Err = ParseIntError;
     fn from_str(string: &str) -> Result<Self, Self::Err> {
         let cols: Vec<f32> = string
             .split(',')
             .map(|x| x.parse::<f32>().unwrap())
             .collect();
-        Ok(RgbaF {
+        Ok(Color {
             r: cols[0] / 255.0,
             g: cols[1] / 255.0,
             b: cols[2] / 255.0,
             a: cols[3] / 255.0,
-            sRGB: false,
+            mode: ColorType::RGBA,
         })
     }
 }
-
-// RgbaF operators
-impl std::ops::Add<RgbaF> for RgbaF {
-    type Output = RgbaF;
-    fn add(self, mut _rhs: RgbaF) -> RgbaF {
-        if self.sRGB != _rhs.sRGB {
-            match self.sRGB {
-                true => _rhs = _rhs.to_sRGB(),
-                false => _rhs = _rhs.to_RGB(),
-            }
-        }
-        RgbaF {
+// mode: ColorType::RGBA
+// Color operators
+impl std::ops::Add<Color> for Color {
+    type Output = Color;
+    fn add(self, mut _rhs: Color) -> Color {
+        _rhs = _rhs.to(self.mode);
+        Color {
             r: self.r + _rhs.r,
             g: self.g + _rhs.g,
             b: self.b + _rhs.b,
             a: self.a + _rhs.a,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
-impl std::ops::Sub<RgbaF> for RgbaF {
-    type Output = RgbaF;
-    fn sub(self, mut _rhs: RgbaF) -> RgbaF {
-        if self.sRGB != _rhs.sRGB {
-            match self.sRGB {
-                true => _rhs = _rhs.to_sRGB(),
-                false => _rhs = _rhs.to_RGB(),
-            }
-        }
-        RgbaF {
+impl std::ops::Sub<Color> for Color {
+    type Output = Color;
+    fn sub(self, mut _rhs: Color) -> Color {
+        _rhs = _rhs.to(self.mode);
+        Color {
             r: self.r - _rhs.r,
             g: self.g - _rhs.g,
             b: self.b - _rhs.b,
             a: self.a - _rhs.a,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
-impl std::ops::Mul<RgbaF> for RgbaF {
-    type Output = RgbaF;
-    fn mul(self, mut _rhs: RgbaF) -> RgbaF {
-        if self.sRGB != _rhs.sRGB {
-            match self.sRGB {
-                true => _rhs = _rhs.to_sRGB(),
-                false => _rhs = _rhs.to_RGB(),
-            }
-        }
-        RgbaF {
+impl std::ops::Mul<Color> for Color {
+    type Output = Color;
+    fn mul(self, mut _rhs: Color) -> Color {
+        _rhs = _rhs.to(self.mode);
+        Color {
             r: self.r * _rhs.r,
             g: self.g * _rhs.g,
             b: self.b * _rhs.b,
             a: self.a * _rhs.a,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
 
 // f32 operators
-impl std::ops::Add<f32> for RgbaF {
-    type Output = RgbaF;
-    fn add(self, _rhs: f32) -> RgbaF {
-        RgbaF {
+impl std::ops::Add<f32> for Color {
+    type Output = Color;
+    fn add(self, _rhs: f32) -> Color {
+        Color {
             r: self.r + _rhs,
             g: self.g + _rhs,
             b: self.b + _rhs,
             a: self.a + _rhs,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
-impl std::ops::Sub<f32> for RgbaF {
-    type Output = RgbaF;
-    fn sub(self, _rhs: f32) -> RgbaF {
-        RgbaF {
+impl std::ops::Sub<f32> for Color {
+    type Output = Color;
+    fn sub(self, _rhs: f32) -> Color {
+        Color {
             r: self.r - _rhs,
             g: self.g - _rhs,
             b: self.b - _rhs,
             a: self.a - _rhs,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
-impl std::ops::Mul<f32> for RgbaF {
-    type Output = RgbaF;
-    fn mul(self, _rhs: f32) -> RgbaF {
-        RgbaF {
+impl std::ops::Mul<f32> for Color {
+    type Output = Color;
+    fn mul(self, _rhs: f32) -> Color {
+        Color {
             r: self.r * _rhs,
             g: self.g * _rhs,
             b: self.b * _rhs,
             a: self.a * _rhs,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
-impl std::ops::Div<f32> for RgbaF {
-    type Output = RgbaF;
-    fn div(self, _rhs: f32) -> RgbaF {
-        RgbaF {
+impl std::ops::Div<f32> for Color {
+    type Output = Color;
+    fn div(self, _rhs: f32) -> Color {
+        Color {
             r: self.r / _rhs,
             g: self.g / _rhs,
             b: self.b / _rhs,
             a: self.a / _rhs,
-            sRGB: self.sRGB,
+            mode: self.mode,
         }
     }
 }
